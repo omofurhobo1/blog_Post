@@ -9,82 +9,104 @@ import 'package:workshop/util/http_service.dart';
 enum Status {
   notRegistered,
   registering,
-  registered
+  registered,
+  notLogin,
+  loggedIn,
+  loggingIn,
+  
+  notLoading,
+  loading,
+  loaded
 }
 
-class AuthProvider with ChangeNotifier{
+class AuthProvider with ChangeNotifier {
+  Status _registeredStatus = Status.notRegistered;
+  Status _logginStatus = Status.notLogin;
+  Status get logginStatus => _logginStatus;
+  Status get registeredStatus => _registeredStatus;
 
-    Status _registeredStatus = Status.notRegistered;
+  set registeredStatus(Status value) {
+    registeredStatus = value;
+  }
 
-    Status get registeredStatus => _registeredStatus;
+  Future<Map<String, dynamic>> login(String email, String password) async {
+    final Map<String, dynamic> loginBody = {
+      "email": email,
+      "password": password
+    };
 
-    set registeredStatus(Status value){
-      registeredStatus = value;
-    }
+    _logginStatus = Status.loggingIn;
+    notifyListeners();
 
-    Future<Map<String, dynamic>> register(String name, 
-            String email, String password) async{
+    var response = await post(Uri.parse(HttpService.login),
+            body: json.encode(loginBody),
+            headers: {'content-Type': 'application/json'})
+        .then(onValue)
+        .catchError(onError);
 
-      final Map<String, dynamic> registeredData = {
-          "name" : name,
-          "email" : email,
-          "password" : password
-      };
+    _logginStatus = Status.loggedIn;
+    notifyListeners();
 
-      _registeredStatus = Status.registering;
-      notifyListeners();
+    return response;
+  }
 
-      var response = await post(Uri.parse(HttpService.register),
-        body: json.encode(registeredData),
-        headers: {'content-Type': "application/json"}
-      ).then(onValue)
-      .catchError(onError);
+  Future<Map<String, dynamic>> register(
+      String name, String email, String password) async {
+    final Map<String, dynamic> registeredData = {
+      "name": name,
+      "email": email,
+      "password": password
+    };
 
-      _registeredStatus = Status.registered;
-      notifyListeners();
+    _registeredStatus = Status.registering;
+    notifyListeners();
 
-      return response;
-    }
+    var response = await post(Uri.parse(HttpService.register),
+            body: json.encode(registeredData),
+            headers: {'content-Type': "application/json"})
+        .then(onValue)
+        .catchError(onError);
 
-    static Future onValue(Response response) async{
-      var result;
+    _registeredStatus = Status.registered;
+    notifyListeners();
 
-      final Map<String, dynamic> responseData = json.decode(response.body);
+    return response;
+  }
 
-      if(response.statusCode == 200){
+  static Future onValue(Response response) async {
+    Map<String, dynamic> result;
 
-          if(responseData.containsKey('validation_errors')){
-            result = {
-              'status' : 500,
-              'message' : responseData['validation_errors'].toString(),
-              'data' : null
-            };
-          }else{
+    final Map<String, dynamic> responseData = json.decode(response.body);
 
-              var userData = responseData;
+    if (response.statusCode == 200) {
+      if (responseData.containsKey('validation_errors')) {
+        result = {
+          'status': 500,
+          'message': responseData['validation_errors'].toString(),
+          'data': null
+        };
+      } else {
+        var userData = responseData;
 
-              User user = User.fromJson(userData);
+        User user = User.fromJson(userData);
 
-              UserPreference().saveRegisteredUser(user);
+        UserPreference().saveRegisteredUser(user);
 
-              result= {
-                "status" : 200,
-                "message" : responseData["message"],
-                'data' : responseData
-              };
-
-
-          }
+        result = {
+          "status": 200,
+          "message": responseData["message"],
+          'data': user
+        };
       }
-
+      return result;
     }
+  }
 
-    static onError(error){
-      return {
-        'status' : false,
-        'message' : "Unexpected Error Encountered!",
-        'data' : error
-      };
-    }
-
+  static onError(error) {
+    return {
+      'status': false,
+      'message': "Unexpected Error Encountered!",
+      'data': error
+    };
+  }
 }
