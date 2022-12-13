@@ -43,7 +43,7 @@ class MyApp extends StatelessWidget {
                 if (snapshot.hasError) {
                   return Text("Error :${snapshot.error}");
                 } else if (snapshot.data!.token == "null") {
-                  return const HomePage();
+                  return const LoginScreen();
                 } else {
                   //User user=User(user: user, token: token)
                   return const HomePage();
